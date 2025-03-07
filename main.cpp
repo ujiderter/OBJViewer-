@@ -1,13 +1,7 @@
-#include <iostream>
-#include "OBJModel.h"
+#include "Renderer.h"
+#include "WinAPIRenderer.h"
 
 int main() {
-    std::string filepath = "m.obj";
-    auto model = OBJModel::loadOBJ(filepath);
-
-    if (model) {
-        model->printModelInfo();
-    }
-
-    return 0;
+    std::unique_ptr<Renderer> renderer = std::make_unique<WinAPIRenderer>();
+    renderer->run();
 }
