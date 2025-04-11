@@ -14,6 +14,7 @@ public:
     IEventHandler* eventHandler{nullptr};
 
     virtual void setEventHandler(IEventHandler* handler) = 0;
+    virtual void setCamera(std::shared_ptr<Camera> camera) = 0;
 
     [[nodiscard]] virtual bool initialize() = 0;
     virtual void render(const std::vector<Triangle>& triangles) = 0;

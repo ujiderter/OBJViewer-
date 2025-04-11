@@ -26,6 +26,8 @@ private:
     HDC hdc{nullptr};
     std::vector<Triangle> model;
     std::string currentFilePath;
+    std::shared_ptr<Camera> camera;
+    std::unique_ptr<Light> light;
 
     [[nodiscard]] std::string openFileDialog() const {
         OPENFILENAME ofn{};
@@ -63,7 +65,16 @@ private:
     }
 public:
     WinAPIRenderer() {
-        Gdiplus::GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, nullptr);
+        if (Gdiplus::GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, nullptr) != Gdiplus::Ok) {
+            throw std::runtime_error("Failed to initialize GDI+");
+        }
+        light = std::make_unique<Light>(
+            LightType::Directional,
+            VecMath::Vector3D<float>(0.0f, 0.0f, 0.0f),
+            VecMath::Vector3D<float>(0.0f, 0.0f, 1.0f),
+            VecMath::Vector3D<float>(1.0f, 1.0f, 1.0f),
+            1.0f
+        );
     }
 
     ~WinAPIRenderer() override {
@@ -81,62 +92,55 @@ public:
         eventHandler = handler;
     }
 
+    void setCamera(std::shared_ptr<Camera> cam) override {
+        camera = std::move(cam);
+    }
+
     [[nodiscard]] bool initialize() override { return true; }
 
     void render(const std::vector<Triangle>& triangles) override {
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hwnd, &ps);
+        if (!hdc) return;
 
-        // Получаем размеры окна
         RECT clientRect;
         GetClientRect(hwnd, &clientRect);
         int windowWidth = clientRect.right - clientRect.left;
         int windowHeight = clientRect.bottom - clientRect.top;
 
-        // Создаем задний буфер
-        HDC backBufferDC = CreateCompatibleDC(hdc); // Контекст устройства для заднего буфера
-        HBITMAP backBufferBitmap = CreateCompatibleBitmap(hdc, windowWidth, windowHeight); // Битмап для заднего буфера
-        HBITMAP oldBitmap = (HBITMAP)SelectObject(backBufferDC, backBufferBitmap); // Выбираем битмап в контекст
+        HDC backBufferDC = CreateCompatibleDC(hdc);
+        HBITMAP backBufferBitmap = CreateCompatibleBitmap(hdc, windowWidth, windowHeight);
+        HBITMAP oldBitmap = (HBITMAP)SelectObject(backBufferDC, backBufferBitmap);
 
-        // Очищаем задний буфер (заполняем черным цветом)
-        HBRUSH hBrush = CreateSolidBrush(RGB(0, 0, 0)); // Черный цвет
+        HBRUSH hBrush = CreateSolidBrush(RGB(0, 0, 0));
         FillRect(backBufferDC, &clientRect, hBrush);
         DeleteObject(hBrush);
-
-        // Рисуем треугольники в задний буфер
-        Gdiplus::Graphics graphics(backBufferDC);
 
         std::vector<Triangle> processedTriangles;
         for (const auto& triangle : triangles) {
             Triangle t(triangle);
-            t.scale(150.0f);
-            t.translate(windowWidth / 2, windowHeight / 2);
+            if (camera) {
+                auto viewProj = camera->getViewProjectionMatrix();
+                t.applyMatrix(viewProj);
+            } else {
+                t.scale(150.0f);
+                t.translate(windowWidth / 2, windowHeight / 2);
+            }
             processedTriangles.push_back(t);
         }
 
         std::sort(processedTriangles.begin(), processedTriangles.end());
 
-        VecMath::Vector3D<float> lightDirection(0.0f, 0.0f, 1.0f);
-
         for (const auto& triangle : processedTriangles) {
-            if (!triangle.isVisible()) {
-                continue; // Пропускаем невидимые грани
-            }
+            if (!triangle.isVisible()) continue;
 
-            // Получаем вершины треугольника
             auto [v1, v2, v3] = triangle.getVertices();
-
-            // Вычисляем интенсивность света
-            float intensity = triangle.computeLightIntensity(lightDirection);
-
-            // Отрисовываем треугольник
+            float intensity = triangle.computeLightIntensity(light->getDirection());
             drawFilledTriangle(backBufferDC, v1, v2, v3, intensity);
         }
 
-        // Копируем задний буфер на экран
         BitBlt(hdc, 0, 0, windowWidth, windowHeight, backBufferDC, 0, 0, SRCCOPY);
 
-        // Освобождаем ресурсы заднего буфера
         SelectObject(backBufferDC, oldBitmap);
         DeleteObject(backBufferBitmap);
         DeleteDC(backBufferDC);

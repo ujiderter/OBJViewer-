@@ -42,7 +42,6 @@ public:
     virtual void setMovementSpeed(float speed) = 0;
     virtual void setMouseSensitivity(float sensitivity) = 0;
 
-    // Дополнительные полезные методы
     [[nodiscard]] virtual VecMath::Vector3D<float> getRight() const = 0;
     [[nodiscard]] virtual VecMath::Vector3D<float> getUp() const = 0;
     virtual void lookAt(const VecMath::Vector3D<float>& target) = 0;
