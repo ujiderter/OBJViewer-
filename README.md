@@ -14,3 +14,5 @@ A lightweight 3D OBJ model viewer with basic interaction features, written in C+
 - C++ compiler (e.g., GCC or MSVC).
 - Graphics library (e.g., OpenGL, SFML, or GLFW).
 - CMake (for building the project).
+
+![3d model viewer demo](images/image.gif)
